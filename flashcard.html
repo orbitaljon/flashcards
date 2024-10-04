@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Flash Cards</title>
+    <style>
+        body, html {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #card {
+            border: 2px solid #ccc;
+            padding: 20px;
+            margin: 20px;
+            font-size: 24px;
+            background-color: #f9f9f9;
+            height: 100px;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+        }
+
+        #score, #timer {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="card-container">
+        <div id="card">
+            <div id="word">Press Start to play!</div>
+        </div>
+        <button id="know">Know It</button>
+        <button id="dont-know">Don't Know It</button>
+        <button id="pause">Pause Game</button>
+        <div id="score">Score: 0</div>
+        <div id="timer">Time: 60s</div>
+        <button id="start">Start Game</button>
+    </div>
+    <script>
+        const fullVocabulary = [
+            "abandon", "abundant", "accurate", "acquire", "adamant", "adequate", "admire", "adversary", "affluent", "agitate",
+            "allege", "allocate", "ambiguous", "ambitious", "ample", "ancestor", "antagonize", "anticipate", "apparent", "appropriate",
+            "aroma", "articulate", "astonish", "attain", "attribute", "audible", "beneficial", "blend", "blunder", "boisterous",
+            "brevity", "buoyant", "camouflage", "candid", "capable", "capacity", "catalyst", "chronic", "clarity", "collaborate",
+            "commence", "commend", "compact", "comparable", "compel", "competent", "compile", "composure", "comprehensive", "conceal",
+            "concise", "concur", "condense", "confidential", "conform", "congenial", "consecutive", "consensus", "conspicuous", "constituent",
+            "contemplate", "contend", "contradict", "contrive", "convey", "copious", "core", "corroborate", "craft", "crucial",
+            "cumbersome", "curtail", "customary", "dawdle", "dearth", "debate", "deceive", "decipher", "decline", "deficient",
+            "demonstrate", "depict", "derive", "desolate", "deter", "devise", "devote", "diligent", "diminish", "discreet"
+        ];
+        let vocabulary = [];
+        let score = 0;
+        let currentWordIndex = 0;
+        let timer = 60;
+        let countdown;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let metronomeActive = false;
+        let gamePaused = false;
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function selectWords() {
+            shuffleArray(fullVocabulary);
+            vocabulary = fullVocabulary.slice(0, 20);
+        }
+
+        function displayWord() {
+            const wordElement = document.getElementById('word');
+            if (vocabulary.length > 0 && currentWordIndex < vocabulary.length) {
+                wordElement.textContent = vocabulary[currentWordIndex];
+            } else {
+                wordElement.textContent = "Press Start to play!";
+            }
+        }
+
+        function startGame() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            if (!gamePaused) { // Check if the game was paused
+                selectWords();
+                score = 0;
+                timer = 60;
+            }
+            gamePaused = false;
+            metronomeActive = true;
+            displayWord();
+            document.getElementById('score').textContent = 'Score: ' + score;
+            document.getElementById('timer').textContent = 'Time: ' + timer + 's';
+            clearInterval(countdown);
+            countdown = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            if (timer > 0) {
+                timer--;
+                document.getElementById('timer').textContent = 'Time: ' + timer + 's';
+            }
+            if (timer <= 0) {
+                clearInterval(countdown);
+                endGame();
+            }
+            if (metronomeActive) {
+                playMetronome();
+            }
+        }
+
+        function playMetronome() {
+            let oscillator = audioContext.createOscillator();
+            let gainNode = audioContext.createGain();
+            oscillator.type = 'square';
+            oscillator.frequency.value = 880;
+            gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.05);
+        }
+
+        function playSound(type) {
+            let oscillator = audioContext.createOscillator();
+            oscillator.connect(audioContext.destination);
+            if (type === 'know') {
+                oscillator.frequency.value = 520; // Positive sound
+            } else {
+                oscillator.frequency.value = 220; // Negative sound
+            }
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        function knowWord() {
+            if (!gamePaused) {
+                score++;
+                playSound('know');
+                if (currentWordIndex < vocabulary.length - 1) {
+                    currentWordIndex++;
+                    displayWord();
+                } else {
+                    endGame();
+                }
+                document.getElementById('score').textContent = 'Score: ' + score;
+            }
+        }
+
+        function dontKnowWord() {
+            if (!gamePaused) {
+                playSound('dont-know');
+                if (currentWordIndex < vocabulary.length - 1) {
+                    currentWordIndex++;
+                    displayWord();
+                } else {
+                    endGame();
+                }
+            }
+        }
+
+        function pauseGame() {
+            if (!gamePaused) {
+                clearInterval(countdown);
+                metronomeActive = false;
+                gamePaused = true;
+                document.getElementById('timer').textContent = 'Paused at ' + timer + 's';
+            }
+        }
+
+        function endGame() {
+            clearInterval(countdown);
+            metronomeActive = false;
+            gamePaused = false;  // Ensure game is not marked as paused
+            alert('Time up! Your score: ' + score);
+            document.getElementById('score').textContent = 'Score: ' + score;
+            document.getElementById('word').textContent = 'Press Start to play!';
+        }
+
+        document.getElementById('start').addEventListener('click', startGame);
+        document.getElementById('know').addEventListener('click', knowWord);
+        document.getElementById('dont-know').addEventListener('click', dontKnowWord);
+        document.getElementById('pause').addEventListener('click', pauseGame);
+    </script>
+</body>
+</html>
